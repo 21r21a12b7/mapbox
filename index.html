@@ -2,16 +2,35 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Mapbox Polyline</title>
+    <title>Mapbox Polyline with Hybrid Layer Option</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.css' rel='stylesheet' />
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        #layerToggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1;
+            background: white;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 3px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
     <div id='map'></div>
+    <div id="layerToggle">
+        <label>
+            <input type="radio" name="layer" value="streets" checked> Streets
+        </label>
+        <label>
+            <input type="radio" name="layer" value="hybrid"> Hybrid
+        </label>
+    </div>
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.js'></script>
     <script>
         // Replace 'YOUR_MAPBOX_ACCESS_TOKEN' with your actual Mapbox access token
@@ -25,52 +44,76 @@
             zoom: 2 // initial map zoom
         });
 
+        let coordinates = [];
+
+        // Function to add the polyline to the map
+        const addPolyline = () => {
+            if (map.getSource('route')) {
+                map.removeLayer('route');
+                map.removeSource('route');
+            }
+
+            const geojson = {
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: coordinates
+                }
+            };
+
+            map.addSource('route', {
+                type: 'geojson',
+                data: geojson
+            });
+
+            map.addLayer({
+                id: 'route',
+                type: 'line',
+                source: 'route',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#000000',
+                    'line-width': 3
+                }
+            });
+
+            // Set the map bounds to fit the polyline
+            const bounds = new mapboxgl.LngLatBounds();
+            coordinates.forEach(coord => bounds.extend(coord));
+            map.fitBounds(bounds, {
+                padding: 20
+            });
+        };
+
         // Load coordinates from the JSON file
         fetch('coordinates.json')
             .then(response => response.json())
             .then(data => {
                 // Assume the data is a nested list of [latitude, longitude]
-                const coordinates = data.map(coord => [coord[1], coord[0]]); // Convert to [lng, lat]
+                coordinates = data.map(coord => [coord[1], coord[0]]); // Convert to [lng, lat]
 
-                // Create a GeoJSON line feature from the coordinates
-                const geojson = {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: coordinates
-                    }
-                };
-
-                // Add the line to the map
-                map.on('load', () => {
-                    map.addSource('route', {
-                        type: 'geojson',
-                        data: geojson
-                    });
-
-                    map.addLayer({
-                        id: 'route',
-                        type: 'line',
-                        source: 'route',
-                        layout: {
-                            'line-join': 'round',
-                            'line-cap': 'round'
-                        },
-                        paint: {
-                            'line-color': '#000000',
-                            'line-width': 3
-                        }
-                    });
-
-                    // Set the map bounds to fit the polyline
-                    const bounds = new mapboxgl.LngLatBounds();
-                    coordinates.forEach(coord => bounds.extend(coord));
-                    map.fitBounds(bounds, {
-                        padding: 50
-                    });
-                });
+                // Add the polyline to the map
+                map.on('load', addPolyline);
             })
             .catch(error => console.error('Error loading coordinates:', error));
+
+        // Layer toggle functionality
+        document.querySelectorAll('input[name="layer"]').forEach(input => {
+            input.addEventListener('change', (event) => {
+                const layer = event.target.value;
+                if (layer === 'streets') {
+                    map.setStyle('mapbox://styles/mapbox/streets-v11');
+                } else if (layer === 'hybrid') {
+                    map.setStyle('mapbox://styles/mapbox/satellite-streets-v11');
+                }
+            });
+        });
+
+        // Re-add the polyline after the style has loaded
+        map.on('style.load', addPolyline);
     </script>
 </body>
 </html>
