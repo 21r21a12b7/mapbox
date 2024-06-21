@@ -1,83 +1,76 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapbox Layer Selector</title>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css" rel="stylesheet">
+    <meta charset="utf-8">
+    <title>Mapbox Polyline</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.css' rel='stylesheet' />
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; }
-        #map { width: 100%; height: 100%; }
-        #layerSelector {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        }
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
     </style>
 </head>
 <body>
+    <div id='map'></div>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.js'></script>
+    <script>
+        // Replace 'YOUR_MAPBOX_ACCESS_TOKEN' with your actual Mapbox access token
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2FpdGhhcnVuIiwiYSI6ImNsdmU1NHM1aTA0NGIyam81dDhnM3F2dXcifQ.oN6YAvWb4x8JSAN2NgjgnA';
 
-<div id="map"></div>
-<div id="layerSelector">
-    <select id="layerSelect">
-        <option value="mapbox://styles/mapbox/streets-v11">Streets</option>
-        <option value="mapbox://styles/mapbox/outdoors-v11">Outdoors</option>
-        <option value="mapbox://styles/mapbox/light-v10">Light</option>
-        <option value="mapbox://styles/mapbox/dark-v10">Dark</option>
-        <option value="mapbox://styles/mapbox/satellite-v9">Satellite</option>
-        <option value="mapbox://styles/mapbox/satellite-streets-v11">Satellite Streets</option>
-        <option value="mapbox://styles/mapbox/navigation-day-v1">Navigation Day</option>
-        <option value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</option>
-    </select>
-</div>
+        // Initialize the map
+        const map = new mapboxgl.Map({
+            container: 'map', // container ID
+            style: 'mapbox://styles/mapbox/streets-v11', // style URL
+            center: [0, 0], // initial map center in [lng, lat]
+            zoom: 2 // initial map zoom
+        });
 
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js"></script>
-<script>
-    mapboxgl.accessToken = 'pk.eyJ1Ijoic2FpdGhhcnVuIiwiYSI6ImNsdmU1NHM1aTA0NGIyam81dDhnM3F2dXcifQ.oN6YAvWb4x8JSAN2NgjgnA';
+        // Load coordinates from the JSON file
+        fetch('coordinates.json')
+            .then(response => response.json())
+            .then(data => {
+                // Assume the data is a nested list of [latitude, longitude]
+                const coordinates = data.map(coord => [coord[1], coord[0]]); // Convert to [lng, lat]
 
-    // Initialize the map with the default style
-    const map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [0, 0], // Starting position [lng, lat]
-        zoom: 12
-    });
+                // Create a GeoJSON line feature from the coordinates
+                const geojson = {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: coordinates
+                    }
+                };
 
-    // Function to get current location and update the map center
-    function updateLocation(position) {
-        const lng = position.coords.longitude;
-        const lat = position.coords.latitude;
-        map.setCenter([lng, lat]);
+                // Add the line to the map
+                map.on('load', () => {
+                    map.addSource('route', {
+                        type: 'geojson',
+                        data: geojson
+                    });
 
-        // Add a marker at the current location
-        new mapboxgl.Marker()
-            .setLngLat([lng, lat])
-            .addTo(map);
-    }
+                    map.addLayer({
+                        id: 'route',
+                        type: 'line',
+                        source: 'route',
+                        layout: {
+                            'line-join': 'round',
+                            'line-cap': 'round'
+                        },
+                        paint: {
+                            'line-color': '#000000',
+                            'line-width': 3
+                        }
+                    });
 
-    // Error handler for geolocation
-    function handleError(error) {
-        console.error("Error getting location: ", error);
-    }
-
-    // Get the current location
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(updateLocation, handleError);
-    } else {
-        console.error("Geolocation is not supported by this browser.");
-    }
-
-    // Change the map style based on the selected value
-    const layerSelect = document.getElementById('layerSelect');
-    layerSelect.addEventListener('change', (event) => {
-        map.setStyle(event.target.value);
-    });
-</script>
-
+                    // Set the map bounds to fit the polyline
+                    const bounds = new mapboxgl.LngLatBounds();
+                    coordinates.forEach(coord => bounds.extend(coord));
+                    map.fitBounds(bounds, {
+                        padding: 50
+                    });
+                });
+            })
+            .catch(error => console.error('Error loading coordinates:', error));
+    </script>
 </body>
 </html>
