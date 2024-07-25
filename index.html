@@ -1,69 +1,72 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Mapbox Polyline with Hybrid Layer Option</title>
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <link href='https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.css' rel='stylesheet' />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Navigation with Custom Path</title>
     <style>
-        body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        #layerToggle {
+        body { margin: 0; }
+        #map { width: 100vw; height: 100vh; }
+        #layer-toggle {
             position: absolute;
             top: 10px;
-            right: 10px;
-            z-index: 1;
+            left: 10px;
             background: white;
-            padding: 10px;
-            font-size: 14px;
-            border-radius: 3px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            cursor: pointer;
+            z-index: 1; /* Ensure the button is above other map elements */
         }
     </style>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.js'></script>
 </head>
 <body>
-    <div id='map'></div>
-    <div id="layerToggle">
-        <label>
-            <input type="radio" name="layer" value="streets" checked> Streets
-        </label>
-        <label>
-            <input type="radio" name="layer" value="hybrid"> Hybrid
-        </label>
-    </div>
-    <script src='https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.js'></script>
+    <div id="map"></div>
+    <div id="layer-toggle">Switch to Hybrid</div>
     <script>
-        // Replace 'YOUR_MAPBOX_ACCESS_TOKEN' with your actual Mapbox access token
-        mapboxgl.accessToken = 'pk.eyJ1Ijoic2FpdGhhcnVuIiwiYSI6ImNsdmU1NHM1aTA0NGIyam81dDhnM3F2dXcifQ.oN6YAvWb4x8JSAN2NgjgnA';
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2FpdGhhcnVuIiwiYSI6ImNsdmU1NHM1aTA0NGIyam81dDhnM3F2dXcifQ.oN6YAvWb4x8JSAN2NgjgnA'; // Replace with your Mapbox access token
 
-        // Initialize the map
         const map = new mapboxgl.Map({
-            container: 'map', // container ID
-            style: 'mapbox://styles/mapbox/streets-v11', // style URL
-            center: [0, 0], // initial map center in [lng, lat]
-            zoom: 2 // initial map zoom
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [79.5941, 17.5408], // Initial center
+            zoom: 18,
+            pitch: 60,
+            bearing: 0 // Initial bearing
         });
 
-        let coordinates = [];
+        // Add navigation control
+        map.addControl(new mapboxgl.NavigationControl());
 
-        // Function to add the polyline to the map
-        const addPolyline = () => {
-            if (map.getSource('route')) {
+        // Fetch the coordinates from morning.json
+        async function getRoute() {
+            const response = await fetch('morning.json');
+            const data = await response.json();
+            return data; // Return the coordinates directly
+        }
+
+        async function addRouteLayer(color) {
+            const coordinates = await getRoute();
+            const route = coordinates.map(coord => [coord[1], coord[0]]);
+
+            // Check if the route layer already exists and remove it
+            if (map.getLayer('route')) {
                 map.removeLayer('route');
                 map.removeSource('route');
             }
 
-            const geojson = {
-                type: 'Feature',
-                geometry: {
-                    type: 'LineString',
-                    coordinates: coordinates
-                }
-            };
-
+            // Add route line to the map
             map.addSource('route', {
                 type: 'geojson',
-                data: geojson
+                data: {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: route
+                    }
+                }
             });
 
             map.addLayer({
@@ -71,49 +74,82 @@
                 type: 'line',
                 source: 'route',
                 layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round'
+                    'line-cap': 'round',
+                    'line-join': 'round'
                 },
                 paint: {
-                    'line-color': '#000000',
-                    'line-width': 3
+                    'line-color': color,
+                    'line-width': 5
                 }
             });
+        }
 
-            // Set the map bounds to fit the polyline
-            const bounds = new mapboxgl.LngLatBounds();
-            coordinates.forEach(coord => bounds.extend(coord));
-            map.fitBounds(bounds, {
-                padding: 20
-            });
-        };
+        map.on('load', async () => {
+            await addRouteLayer('#000000'); // Default color is black (street view)
 
-        // Load coordinates from the JSON file
-        fetch('coordinates.json')
-            .then(response => response.json())
-            .then(data => {
-                // Assume the data is a nested list of [latitude, longitude]
-                coordinates = data.map(coord => [coord[1], coord[0]]); // Convert to [lng, lat]
+            const coordinates = await getRoute();
+            const route = coordinates.map(coord => [coord[1], coord[0]]);
 
-                // Add the polyline to the map
-                map.on('load', addPolyline);
+            // Add car marker
+            const carMarker = new mapboxgl.Marker({
+                color: 'red'
             })
-            .catch(error => console.error('Error loading coordinates:', error));
+            .setLngLat(route[0])
+            .addTo(map);
 
-        // Layer toggle functionality
-        document.querySelectorAll('input[name="layer"]').forEach(input => {
-            input.addEventListener('change', (event) => {
-                const layer = event.target.value;
-                if (layer === 'streets') {
-                    map.setStyle('mapbox://styles/mapbox/streets-v11');
-                } else if (layer === 'hybrid') {
-                    map.setStyle('mapbox://styles/mapbox/satellite-streets-v11');
+            let index = 0;
+            const moveCar = () => {
+                if (index < route.length - 1) {
+                    const start = route[index];
+                    const end = route[index + 1];
+
+                    // Calculate the bearing from start to end
+                    const bearing = Math.atan2(end[1] - start[1], end[0] - start[0]) * (180 / Math.PI);
+
+                    // Move marker
+                    carMarker.setLngLat(start);
+
+                    // Update map center and bearing
+                    map.easeTo({
+                        center: start,
+                        bearing: 180 - bearing - 90, // Adjust bearing to align map with direction of travel
+                        pitch: 60,
+                        duration: 1000 // Smooth transition
+                    });
+
+                    index++;
+                    setTimeout(moveCar, 3000); // Move every 3 seconds
+                } else {
+                    // Final position
+                    carMarker.setLngLat(route[route.length - 1]);
+                    map.easeTo({
+                        center: route[route.length - 1],
+                        bearing: 0, // Final bearing
+                        pitch: 60,
+                        duration: 1000
+                    });
                 }
-            });
+            };
+
+            moveCar();
         });
 
-        // Re-add the polyline after the style has loaded
-        map.on('style.load', addPolyline);
+        // Layer toggle functionality
+        const layerToggle = document.getElementById('layer-toggle');
+        let isHybrid = false;
+
+        layerToggle.addEventListener('click', () => {
+            const newStyle = isHybrid ? 'mapbox://styles/mapbox/streets-v11' : 'mapbox://styles/mapbox/satellite-streets-v11';
+            const color = isHybrid ? '#000000' : '#0000FF'; // Black for street view, blue for hybrid view
+
+            map.setStyle(newStyle);
+
+            map.once('style.load', async () => {
+                await addRouteLayer(color); // Re-add the route layer with the new color
+                layerToggle.textContent = isHybrid ? 'Switch to Hybrid' : 'Switch to Street View';
+                isHybrid = !isHybrid;
+            });
+        });
     </script>
 </body>
 </html>
