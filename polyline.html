@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapbox Polyline from Coordinates</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        /* Style for the loading indicator */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            font-size: 20px;
+            color: #000;
+            z-index: 999;
+            display: none;
+        }
+    </style>
+    <!-- Link to Mapbox CSS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet" />
+</head>
+<body>
+
+    <!-- Map container -->
+    <div id="map"></div>
+    
+    <!-- Loading indicator -->
+    <div id="loading">Loading...</div>
+
+    <!-- Include Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
+
+    <script>
+        // Your Mapbox access token
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2FpdGhhcnVuIiwiYSI6ImNsdmU1NHM1aTA0NGIyam81dDhnM3F2dXcifQ.oN6YAvWb4x8JSAN2NgjgnA';
+
+        // Fetch the morning.json file with the coordinates
+        fetch('morning.json')
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+                
+                // Create the map instance
+                const map = new mapboxgl.Map({
+                    container: 'map',
+                    style: 'mapbox://styles/mapbox/streets-v11',
+                    zoom: 12,
+                    center: [0, 0]
+                });
+
+                // Coordinates from the morning.json file
+                const coordinates = data;
+
+                // Create a line (polyline) on the map
+                const polyline = new mapboxgl.Marker()
+                    .setLngLat(coordinates[0])  // Start marker for reference (optional)
+                    .addTo(map);
+
+                // Add a polyline (line) connecting the coordinates
+                map.on('load', function() {
+                    map.addSource('polyline', {
+                        type: 'geojson',
+                        data: {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: coordinates
+                            }
+                        }
+                    });
+
+                    map.addLayer({
+                        id: 'polyline-layer',
+                        type: 'line',
+                        source: 'polyline',
+                        paint: {
+                            'line-color': '#ff0000',
+                            'line-width': 4
+                        }
+                    });
+
+                    // Calculate bounds of the polyline
+                    const bounds = new mapboxgl.LngLatBounds();
+                    coordinates.forEach(coord => bounds.extend(coord));
+
+                    // Fit map to the polyline with padding
+                    map.fitBounds(bounds, {
+                        padding: {top: 50, bottom: 50, left: 50, right: 50}
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error loading the coordinates:', error);
+                document.getElementById('loading').innerText = 'Failed to load data.';
+            });
+
+    </script>
+
+</body>
+</html>
