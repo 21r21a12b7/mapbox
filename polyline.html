@@ -59,7 +59,7 @@
                 });
 
                 // Coordinates from the morning.json file
-                const coordinates = data;
+                const coordinates = data.map(pair => [pair[1], pair[0]]);
 
                 // Create a line (polyline) on the map
                 const polyline = new mapboxgl.Marker()
