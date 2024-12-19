@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapbox Polyline from Coordinates</title>
+    <title>Mapbox Polyline with Style Toggle</title>
     <style>
         body, html {
             margin: 0;
@@ -24,6 +24,17 @@
             z-index: 999;
             display: none;
         }
+        /* Style for the toggle button */
+        #style-toggle {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            cursor: pointer;
+            z-index: 10;
+        }
     </style>
     <!-- Link to Mapbox CSS -->
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet" />
@@ -36,12 +47,24 @@
     <!-- Loading indicator -->
     <div id="loading">Loading...</div>
 
+    <!-- Style toggle button -->
+    <button id="style-toggle">Switch to Satellite</button>
+
     <!-- Include Mapbox GL JS -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
 
     <script>
         // Your Mapbox access token
         mapboxgl.accessToken = 'pk.eyJ1Ijoic2FpdGhhcnVuIiwiYSI6ImNsdmU1NHM1aTA0NGIyam81dDhnM3F2dXcifQ.oN6YAvWb4x8JSAN2NgjgnA';
+
+        // Available Mapbox styles
+        const styles = {
+            street: 'mapbox://styles/mapbox/streets-v11',
+            satellite: 'mapbox://styles/mapbox/satellite-v9',
+            hybrid: 'mapbox://styles/mapbox/satellite-streets-v11'
+        };
+
+        let currentStyle = styles.street;  // Default style
 
         // Fetch the morning.json file with the coordinates
         fetch('morning.json')
@@ -53,13 +76,13 @@
                 // Create the map instance
                 const map = new mapboxgl.Map({
                     container: 'map',
-                    style: 'mapbox://styles/mapbox/streets-v11',
+                    style: currentStyle,
                     zoom: 12,
-                    center: [78.44113555100658 , 17.594639395106324]
+                    center: [78.44124283936299 , 17.59474166437419]
                 });
 
                 // Coordinates from the morning.json file
-                const coordinates = data.map(pair => [pair[1], pair[0]]);
+                const coordinates = data.map(pair => [pair[1], pair[0]]);  // Switch [lat, long] to [long, lat]
 
                 // Create a line (polyline) on the map
                 const polyline = new mapboxgl.Marker()
@@ -97,6 +120,41 @@
                     map.fitBounds(bounds, {
                         padding: {top: 50, bottom: 50, left: 50, right: 50}
                     });
+
+                    // Add markers for each coordinate point
+                    coordinates.forEach((coord, index) => {
+                        const marker = new mapboxgl.Marker()
+                            .setLngLat(coord)
+                            .addTo(map);
+
+                        // When a marker is clicked, zoom in on that marker
+                        marker.getElement().addEventListener('click', () => {
+                            map.flyTo({
+                                center: coord,
+                                zoom: 16,  // Adjust this zoom level as needed
+                                speed: 0.5, // Slow down the zoom for smooth transition
+                                curve: 1,  // Smoothness of the zooming
+                                easing: function(t) { return t; } // Ease function (can be adjusted)
+                            });
+                        });
+                    });
+                });
+
+                // Handle style switch toggle
+                const toggleButton = document.getElementById('style-toggle');
+                toggleButton.addEventListener('click', () => {
+                    if (currentStyle === styles.street) {
+                        currentStyle = styles.satellite;
+                        toggleButton.textContent = 'Switch to Street';  // Update button text
+                    } else if (currentStyle === styles.satellite) {
+                        currentStyle = styles.hybrid;
+                        toggleButton.textContent = 'Switch to Hybrid';  // Update button text
+                    } else if (currentStyle === styles.hybrid) {
+                        currentStyle = styles.street;
+                        toggleButton.textContent = 'Switch to Satellite';  // Update button text
+                    }
+                    // Change the map style
+                    map.setStyle(currentStyle);
                 });
             })
             .catch(error => {
