@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapbox - Switch Between Street View and Hybrid View</title>
+    <style>
+        /* Ensure the map takes up the full screen */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        /* Style for the toggle button */
+        #toggleButton {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 999;
+        }
+    </style>
+    <!-- Link to Mapbox CSS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet" />
+</head>
+<body>
+
+    <!-- Map container -->
+    <div id="map"></div>
+
+    <!-- Button to toggle between map views -->
+    <button id="toggleButton">Switch to Hybrid View</button>
+
+    <!-- Include Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
+
+    <script>
+        // Your Mapbox access token
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2FpdGhhcnVuIiwiYSI6ImNsdmU1NHM1aTA0NGIyam81dDhnM3F2dXcifQ.oN6YAvWb4x8JSAN2NgjgnA';
+
+        // Create the map instance
+        const map = new mapboxgl.Map({
+            container: 'map', // The ID of the div where the map will be loaded
+            style: 'mapbox://styles/mapbox/streets-v11', // Default Street View style
+            zoom: 12, // Default zoom level
+            center: [0, 0] // Default center
+        });
+
+        // Get the user's current location and update the map center and zoom
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+
+                // Update the map's center to the current location
+                map.setCenter([longitude, latitude]);
+
+                // Adjust the zoom level for a better view
+                map.setZoom(18); // You can adjust the zoom level as needed
+
+                // Add a marker to indicate the location
+                new mapboxgl.Marker()
+                    .setLngLat([longitude, latitude])
+                    .addTo(map);
+            }, function(error) {
+                console.error("Error getting location:", error);
+            });
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+
+        // Function to toggle between Street View and Hybrid View
+        let isHybridView = false;
+        const toggleButton = document.getElementById('toggleButton');
+        
+        toggleButton.addEventListener('click', function() {
+            if (isHybridView) {
+                // Switch to Street View
+                map.setStyle('mapbox://styles/mapbox/streets-v11');
+                toggleButton.innerHTML = 'Switch to Hybrid View';
+            } else {
+                // Switch to Hybrid View (Satellite + Labels)
+                map.setStyle('mapbox://styles/mapbox/satellite-streets-v11');
+                toggleButton.innerHTML = 'Switch to Street View';
+            }
+            isHybridView = !isHybridView; // Toggle the state
+        });
+    </script>
+
+</body>
+</html>
